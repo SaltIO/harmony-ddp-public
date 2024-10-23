@@ -14,6 +14,7 @@ python -m venv venv
 ## Install Modules
 
 ```bash
+cd harmony-ddp-public
 source venv/bin/activate
 pip install -r setup/requirements.txt
 ```
@@ -21,6 +22,7 @@ pip install -r setup/requirements.txt
 ## Usage
 
 ```bash
+cd harmony-ddp-public
 python src/cobra/sql_parser.py
 ```
 
