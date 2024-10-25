@@ -47,7 +47,9 @@ def convert_sql_to_metadata(filename: str,
                                      'source_cluster_name',
                                      'source_schema_name',
                                      'source_table_name',
-                                     'source_column_name'])
+                                     'source_column_name'
+                                     'filter_type',
+                                     'filter'])
 
     try:
         lineage = SQLMetadata.extract_sql_statements_lineage(
@@ -82,9 +84,9 @@ def convert_sql_to_metadata(filename: str,
                                 lineage_row['source_table_name'] = lineage_item['table']
                                 lineage_row['source_column_name'] = lineage_item['column']
                                 lineage_row['expression'] = lineage_item['expression']
+                                lineage_row['message'] = lineage_item['message']
                                 lineage_row['filter_type'] = lineage_item['filter_type']
                                 lineage_row['filter'] = lineage_item['filter']
-                                lineage_row['message'] = lineage_item['message']
 
                                 rows.append(lineage_row)
                 else:
