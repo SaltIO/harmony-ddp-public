@@ -16,14 +16,14 @@ python -m venv venv
 ```bash
 cd harmony-ddp-public
 source venv/bin/activate
-pip install -r setup/requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Usage
 
 ```bash
 cd harmony-ddp-public
-python src/cobra/sql_parser.py
+python src/sql_parser.py
 ```
 
 The script minimally expects the following args:
@@ -42,4 +42,31 @@ There are other optional arguments that you can also pass:
 --table <the name of the table generated from the sql…filename is used if a file is passed>
 --source_database <the database type where the source datasets reside (ie ‘oracle’)>
 --source_cluster <the logical grouping of datasets in the source database (ie ‘wells_fargo’)>
+--dialect <the sqlglot dialect name:
+            athena
+            bigquery
+            clickhouse
+            databricks
+            doris
+            drill
+            duckdb
+            hive
+            materialize
+            mysql
+            oracle
+            postgres
+            presto
+            prql
+            redshift
+            risingwave
+            snowflake
+            spark
+            spark2
+            sqlite
+            starrocks
+            tableau
+            teradata
+            trino
+            tsql
+            >
 ```

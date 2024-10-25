@@ -50,38 +50,50 @@ def convert_sql_to_metadata(filename: str,
                                      'source_column_name'])
 
     try:
-        lineage = SQLMetadata.extract_column_lineage(sql_stmt=sql_stmt,
-                                                     dialect=dialect)
+        lineage = SQLMetadata.extract_sql_statements_lineage(
+            sql_stmt=sql_stmt,
+            dialect=dialect
+        )
+
         if lineage:
 
             rows = []
-            for column_name, column_lineage in lineage.items():
-                row = {}
-                row['filename'] = filename
-                row['database_name'] = database_name
-                row['cluster_name'] = cluster_name
-                row['schema_name'] = schema_name
-                row['table_name'] = table_name
-                row['column_name'] = column_name
-                row['column_data_type'] = 'NA'
+            for fq_table_name, table_details in lineage.items():
 
-                if 'lineage' in column_lineage:
+                if table_details['columns']:
+                    for column_name, column_details in table_details['columns'].items():
+                        row = {}
+                        row['filename'] = filename
+                        row['database_name'] = database_name
+                        row['cluster_name'] = cluster_name
+                        row['schema_name'] = table_details.get('schema')
+                        row['table_name'] = table_details.get('table')
+                        row['column_name'] = column_name
+                        row['column_data_type'] = column_details.get('data_type') if column_details.get('data_type') else 'NA'
 
-                    for lineage_item in column_lineage['lineage']:
+                        if 'lineage' in column_details:
 
-                        lineage_row = row
-                        lineage_row['source_database_name'] = source_database_name
-                        lineage_row['source_cluster_name'] = source_cluster_name
-                        lineage_row['source_schema_name'] = lineage_item['database']
-                        lineage_row['source_table_name'] = lineage_item['table']
-                        lineage_row['source_column_name'] = lineage_item['column']
-                        lineage_row['expression'] = lineage_item['expression']
-                        lineage_row['message'] = lineage_item['message']
+                            for lineage_item in column_details['lineage']:
 
-                        rows.append(lineage_row)
+                                lineage_row = row
+                                lineage_row['source_database_name'] = source_database_name
+                                lineage_row['source_cluster_name'] = source_cluster_name
+                                lineage_row['source_schema_name'] = lineage_item['schema']
+                                lineage_row['source_table_name'] = lineage_item['table']
+                                lineage_row['source_column_name'] = lineage_item['column']
+                                lineage_row['expression'] = lineage_item['expression']
+                                lineage_row['filter_type'] = lineage_item['filter_type']
+                                lineage_row['filter'] = lineage_item['filter']
+                                lineage_row['message'] = lineage_item['message']
 
+                                rows.append(lineage_row)
                 else:
-
+                    row = {}
+                    row['filename'] = filename
+                    row['database_name'] = database_name
+                    row['cluster_name'] = cluster_name
+                    row['schema_name'] = table_details['schema']
+                    row['table_name'] = table_details['table']
                     rows.append(row)
 
             metadata = pd.concat([metadata, pd.DataFrame(rows)], ignore_index=True)
@@ -101,7 +113,7 @@ def process_sql_file(sql_file: str,
                      schema_name: str,
                      source_database_name: str,
                      source_cluster_name: str,
-                     dialect: str = 'hive') -> pd.DataFrame:
+                     dialect: str = None) -> pd.DataFrame:
 
     LOGGER.info(f"SQL Parsing {sql_file}")
 
@@ -126,7 +138,7 @@ def process(input: str,
             table_name: str,
             source_database_name: str = None,
             source_cluster_name: str = None,
-            dialect: str = 'hive'):
+            dialect: str = None):
     dfs = []
 
     if os.path.isfile(input):
@@ -178,7 +190,7 @@ def main():
     parser.add_argument('--table', '-t', required=False, help='The table name.  Requred if --input is a sql statement.  Ignored if --input is sql file/dir')
     parser.add_argument('--source_database', '-ud', required=False, help='The source database type (ie "hive", "oracle", etc)')
     parser.add_argument('--source_cluster', '-uc', required=False, help='The logical grouping of datasets in the source database. (ie "wells_fargo")')
-    parser.add_argument('--dialect', '-dt', required=False, default='hive', help='The sql dialect name (ie "hive", "oracle"). Default is "hive"')
+    parser.add_argument('--dialect', '-dt', required=False, default=None, help='The sql dialect name (ie "hive", "oracle"). Default is None')
     parser.add_argument('--output', '-o', required=True, help='Output file path. (ie ./output/sql_parsed_output.csv)')
 
     # Parse arguments
@@ -208,44 +220,47 @@ def main():
 def _test():
     process(
         input="""
-            -- Create a temporary table using a Common Table Expression (CTE)
-            WITH sales_summary AS (
-                SELECT
-                    s.sales_id,
-                    s.customer_id,
-                    s.product_id,
-                    s.sale_date,
-                    s.quantity,
-                    s.total_amount,
-                    p.category,
-                    ROW_NUMBER() OVER (PARTITION BY s.customer_id ORDER BY s.sale_date DESC) AS row_num
-                FROM test_xxx_schema.sales s
-                JOIN test_yyy_schema.products p ON s.product_id = p.product_id
-                WHERE s.sale_date >= '2023-01-01'
-            ),
+            -- Set the schema search path
+            SET search_path TO public;
 
-            -- CTE to calculate total sales per category
-            category_totals AS (
-                SELECT
-                    category,
-                    SUM(total_amount) AS total_sales
-                FROM sales_summary
-                GROUP BY category
-            )
+            -- Drop a table if it exists
+            DROP TABLE IF EXISTS users;
 
-            -- Final query to get the results
+            -- Create a new table
+            CREATE TABLE users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) NOT NULL,
+                email VARCHAR(100) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- Create another table and insert data into it using a SELECT statement
+            CREATE TABLE active_users AS
+            SELECT id, username, email
+            FROM users
+            WHERE created_at > CURRENT_DATE - INTERVAL '30 days';
+
+            -- Insert data into users from another table or a select query
+            INSERT INTO users (username, email)
+            SELECT username, email
+            FROM old_users
+            WHERE active = true;
+
+            -- Drop database if it exists
+            DROP DATABASE IF EXISTS archive_db;
+
+            -- Create a new database
+            CREATE DATABASE archive_db;
+
+            -- Use a conditional expression in a select query
             SELECT
-                ss.customer_id,
-                ss.product_id,
-                ss.sale_date,
-                ss.quantity,
-                ss.total_amount,
-                ss.category,
-                ct.total_sales AS category_total_sales
-            FROM sales_summary ss
-            JOIN category_totals ct ON ss.category = ct.category
-            WHERE ss.row_num = 1
-            ORDER BY ss.sale_date DESC;
+                id,
+                username,
+                CASE
+                    WHEN created_at > CURRENT_DATE - INTERVAL '30 days' THEN 'recent'
+                    ELSE 'older'
+                END AS account_status
+            FROM users;
         """,
         output="./test.csv",
         database_name='test_db',
@@ -254,14 +269,67 @@ def _test():
         table_name='test_table',
         # source_database_name='test_source_database',
         # source_cluster_name='test_source_cluster',
-        dialect='hive'
+        dialect='postgres'
     )
+
+    # process(
+    #     input="""
+    #         -- Create a temporary table using a Common Table Expression (CTE)
+    #         WITH sales_summary AS (
+    #             SELECT
+    #                 s.sales_id,
+    #                 s.customer_id,
+    #                 s.product_id,
+    #                 s.sale_date,
+    #                 s.quantity,
+    #                 s.total_amount,
+    #                 p.category,
+    #                 ROW_NUMBER() OVER (PARTITION BY s.customer_id ORDER BY s.sale_date DESC) AS row_num
+    #             FROM test_xxx_schema.sales s
+    #             JOIN test_yyy_schema.products p ON s.product_id = p.product_id
+    #             WHERE s.sale_date >= '2023-01-01'
+    #         ),
+
+    #         -- CTE to calculate total sales per category
+    #         category_totals AS (
+    #             SELECT
+    #                 category,
+    #                 SUM(total_amount) AS total_sales
+    #             FROM sales_summary
+    #             GROUP BY category
+    #         )
+
+    #         -- Final query to get the results
+    #         SELECT
+    #             ss.customer_id,
+    #             ss.product_id,
+    #             ss.sale_date,
+    #             ss.quantity,
+    #             ss.total_amount,
+    #             ss.category,
+    #             ct.total_sales AS category_total_sales
+    #         FROM sales_summary ss
+    #         JOIN category_totals ct ON ss.category = ct.category
+    #         WHERE ss.row_num = 1
+    #         ORDER BY ss.sale_date DESC;
+    #     """,
+    #     output="./test.csv",
+    #     database_name='test_db',
+    #     cluster_name='test_cluster',
+    #     schema_name='test_schema',
+    #     table_name='test_table',
+    #     # source_database_name='test_source_database',
+    #     # source_cluster_name='test_source_cluster',
+    #     dialect='hive'
+    # )
+
+
 
 if __name__ == '__main__':
     try:
-        main()
+        # main()
 
-        # _test()
+        _test()
 
     except Exception as e:
         LOGGER.exception(f"Failed to parse sql: ")

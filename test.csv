@@ -1,0 +1,9 @@
+filename,database_name,cluster_name,schema_name,table_name,column_name,column_data_type,expression,message,source_database_name,source_cluster_name,source_schema_name,source_table_name,source_column_name,filter_type,filter
+,test_db,test_cluster,,users,username,VARCHAR,old_users AS old_users,Table,,,,old_users,username,WHERE,WHERE old_users.active = TRUE
+,test_db,test_cluster,,users,email,VARCHAR,old_users AS old_users,Table,,,,old_users,email,WHERE,WHERE old_users.active = TRUE
+,test_db,test_cluster,,active_users,id,NA,users AS users,Table,,,,users,id,WHERE,WHERE users.created_at > CURRENT_DATE - INTERVAL '30' DAYS
+,test_db,test_cluster,,active_users,username,NA,users AS users,Table,,,,users,username,WHERE,WHERE users.created_at > CURRENT_DATE - INTERVAL '30' DAYS
+,test_db,test_cluster,,active_users,email,NA,users AS users,Table,,,,users,email,WHERE,WHERE users.created_at > CURRENT_DATE - INTERVAL '30' DAYS
+,test_db,test_cluster,,,id,NA,users AS users,Table,,,,users,id,UNKNOWN,
+,test_db,test_cluster,,,username,NA,users AS users,Table,,,,users,username,UNKNOWN,
+,test_db,test_cluster,,,account_status,NA,None,COULD NOT FIND COMPLETE SOURCE db.table/column,,,,,created_at,,
